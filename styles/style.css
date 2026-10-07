@@ -585,6 +585,10 @@ ul.misionesLanzadas li {
     flex-direction: column;
 }
 
+.usuario {
+    margin: 20px auto 0;
+}
+
     .wrap, aside {
         max-width: 100%;
     }
