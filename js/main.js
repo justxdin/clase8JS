@@ -6,13 +6,13 @@ const nombreSesion = document.querySelector(".datos-perfil span")
 inicioSession.addEventListener("submit", function(event){
     event.preventDefault();
     const nombreAstronauta = astronauta.value;
-    sessionStorage.setItem('Astronauta', nombreAstronauta);
-    const nombreRegistrado = sessionStorage.getItem('Astronauta');
+    localStorage.setItem('Astronauta', nombreAstronauta);
+    const nombreRegistrado = localStorage.getItem('Astronauta');
     nombreSesion.innerHTML = nombreRegistrado;
     registroSesion.style.display = "none";
 });
 
-const nombreGuardado = sessionStorage.getItem("Astronauta");
+const nombreGuardado = localStorage.getItem("Astronauta");
 
 if (nombreGuardado){
     nombreSesion.innerHTML = nombreGuardado;
@@ -22,16 +22,18 @@ if (nombreGuardado){
 const verSesion = document.querySelector("#perfil");
 
 verSesion.addEventListener("click", function(){
+    const totalKm = misionesLanzadas.reduce((total, mision) => total + mision.distancia, 0);
+    const totalTiempo = misionesLanzadas.reduce((total, mision) => total + mision.distancia/ mision.velocidad, 0);
     const modalSesion = document.querySelector(".modalSesion");
     modalSesion.innerHTML = `<div class="modal">
                             <button>X</button>
                             <img src="./assets/avatar.webp" alt="imagen astronauta">
                             <div class="datos-perfil">
-                            <h2>Astronauta: <span>${nombreGuardado}</span></h2>
+                            <h2>Astronauta: <span>${localStorage.getItem("Astronauta")}</span></h2>
                             <ul>
-                                <li>Total Misiones: 0 de momento porque no guardamos el historial son sessionStorage</li>
-                                <li>Kilometros recorridos: 0 de momento porque no guardamos el historial son sessionStorage</li>
-                                <li>Tiempo de viaje: 0 de momento porque no guardamos el historial son sessionStorage</li>
+                                <li>Total Misiones: ${misionesLanzadas.length > 0 ? misionesLanzadas.length : 0}</li>
+                                <li>Kilometros recorridos: ${totalKm > 0 ? totalKm : 0} km</li>
+                                <li>Tiempo de viaje: ${totalTiempo > 0 ? convertirDuracion(totalTiempo) : 0}</li>
                             </ul>
                             <a><p>cerrar sesion</p></a>
                             </div>
@@ -41,6 +43,13 @@ verSesion.addEventListener("click", function(){
     const cerrarModal = modalSesion.querySelector("button");
     cerrarModal.addEventListener("click", function(){
         modalSesion.style.display = "none";
+    });
+
+    const cerrarSesion = modalSesion.querySelector("a");
+
+    cerrarSesion.addEventListener("click", function(){
+        localStorage.clear();
+        location.reload();
     });
     
 });
@@ -62,7 +71,8 @@ const viajesEspaciales = [
     { destino: "Eris", url: "./assets/eris.webp", distancia: 10100000000, velocidad: 100000, categoria: "Planeta Enano", mensaje: "Eris está tan lejos del Sol que su temperatura puede bajar hasta unos -230 °C. Espero que hayas llevado un buen abrigo." },
 ];
 
-const misionesLanzadas = [];
+// const misionesLanzadas = [];
+let misionesLanzadas = JSON.parse(localStorage.getItem("misiones")) || [];
 
 
 // // funcion para convertir el calculo de horas a años - dias - horas
@@ -83,6 +93,35 @@ const controles = document.querySelector(".controlVelocidad");
 const contadorMisiones = document.querySelector("tbody");
 const modalMision = document.querySelector(".modalMision");
 
+
+// en function mostrarMision presenté muchas dificultades: 1. al eliminar o me eliminaba el último desde cualquier button, o dejaban de funcionar los botones en todos los TR menos en el último. solución: crear id, pero, eso no fue suficiente, ya que para que al eliminar no borrara el ultimo tuve que no incluir en tr.mision-id dentro del innerHTML sino que por separado. 2. repetición de IDS: una vez logrado el eliminar por id ocurrio lo siguiente, teniendo id=1, 2, 3, 4, eliminaba ids 2 y 4, refrescaba, volvia a lanzar misiones y se me repetian id 3 (que ya existia porque no habia eliminado anteriormente). Solución: tras varios intentos investigué y encontré Date.now() que genera id unicos con fecha y hora (milisegundos).
+
+function mostrarMision({id, destino, velocidad, distancia, duracion}){
+        
+    const historialMisiones = document.createElement("tr");
+    historialMisiones.className = `mision-${id}`;
+    historialMisiones.innerHTML = `<td>${destino}</td>
+                                   <td>${velocidad}</td>
+                                   <td>${distancia}</td>
+                                   <td>${duracion}</td>
+                                   <td><button class="btn-eliminar"><img src="./assets/trash-can.png"></button></td>`;
+    
+    contadorMisiones.appendChild(historialMisiones);
+    
+    const botonEliminar = historialMisiones.querySelector(".btn-eliminar");
+    
+    botonEliminar.addEventListener("click", function(){
+        misionesLanzadas = misionesLanzadas.filter(mision => mision.id !== id);
+        localStorage.setItem("misiones", JSON.stringify(misionesLanzadas));
+        
+        historialMisiones.remove(); 
+    });
+}
+
+misionesLanzadas.forEach(nuevaMision => {
+    mostrarMision(nuevaMision);
+});
+
 contenedorCategorias.innerHTML= `<button class="activo">Planeta</button>
                                 <button>Planeta Enano</button>
                                 <button>Satelite</button>
@@ -95,7 +134,7 @@ botonesCategorias.forEach(boton =>{
 
         botonesCategorias.forEach(boton => boton.classList.remove("activo"));
         boton.classList.add("activo");
-
+        
 
         const categoriaSeleccionada = boton.textContent.toLowerCase();
         const destinosFiltrados = viajesEspaciales.filter(viaje => viaje.categoria.toLowerCase() === categoriaSeleccionada);
@@ -150,6 +189,7 @@ function mostrarDestinos(destinos){
             botonLanzar.addEventListener("click", function(){               
 
                 const nuevaMision = {
+                    id: Date.now(),
                     destino: viaje.destino,
                     velocidad: viaje.velocidad,
                     distancia: viaje.distancia,
@@ -157,14 +197,10 @@ function mostrarDestinos(destinos){
                 }
 
                 misionesLanzadas.push(nuevaMision);
+                localStorage.setItem("misiones", JSON.stringify(misionesLanzadas));
 
-                contadorMisiones.innerHTML = `<tr>
-                                                <td>${nuevaMision.destino}</td>
-                                                <td>${nuevaMision.velocidad}</td>
-                                                <td>${nuevaMision.distancia}</td>
-                                                <td>${nuevaMision.duracion}</td>
-                                                <td><button><img src="./assets/trash-can.png"></button></td>
-                                                </tr>` +contadorMisiones.innerHTML;
+                mostrarMision(nuevaMision);
+
 
                 modalMision.innerHTML = `<div class="modal">
                             <img src="./assets/lanzamiento.gif" alt="lanzamiento ${nuevaMision.destino}" >
